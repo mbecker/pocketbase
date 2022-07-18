@@ -74,6 +74,7 @@ func (p *Strava) FetchAuthUser(token *oauth2.Token) (*AuthUser, error) {
 		Name:      rawData.DisplayName,
 		Email:     fmt.Sprintf("%d@strava.com", rawData.LocalId),
 		AvatarUrl: rawData.PhotoUrl,
+		Token:     *token,
 	}
 
 	return user, nil
