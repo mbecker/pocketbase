@@ -131,6 +131,7 @@ func (p *baseProvider) FetchRawUserData(token *oauth2.Token, result any) error {
 		)
 	}
 
+	fmt.Printf("Body: %s", string(content))
 	return json.Unmarshal(content, &result)
 }
 

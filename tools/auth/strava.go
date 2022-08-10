@@ -63,15 +63,28 @@ func (p *Strava) FetchAuthUser(token *oauth2.Token) (*AuthUser, error) {
 		LocalId     int    `json:"id"`
 		DisplayName string `json:"username"`
 		PhotoUrl    string `json:"profile"`
+		FirstName   string `json:"firstname"`
+		LastName    string `json:"lastname"`
 	}{}
 
 	if err := p.FetchRawUserData(token, &rawData); err != nil {
 		return nil, err
 	}
 
+	// Strava's username can be nil
+	var name string
+	if len(rawData.DisplayName) > 0 {
+		name = rawData.DisplayName
+	} else if len(rawData.FirstName) > 0 {
+		name = rawData.FirstName
+		if len(rawData.LastName) > 0 {
+			name = fmt.Sprintf("%s %s", name, rawData.LastName)
+		}
+	}
+
 	user := &AuthUser{
 		Id:        fmt.Sprintf("%d", rawData.LocalId),
-		Name:      rawData.DisplayName,
+		Name:      name,
 		Email:     fmt.Sprintf("%d@strava.com", rawData.LocalId),
 		AvatarUrl: rawData.PhotoUrl,
 		Token:     *token,

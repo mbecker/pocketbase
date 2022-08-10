@@ -50,6 +50,17 @@ func prepareUserEmailBody(
 	return resolveTemplateContent(params, templates.Layout, bodyTemplate)
 }
 
+// PrepareUserEmailBody prepares the email body
+func PrepareUserEmailBody(
+	app core.App,
+	user *models.User,
+	token string,
+	actionUrl string,
+	bodyTemplate string,
+) (string, error) {
+	return prepareUserEmailBody(app, user, token, actionUrl, bodyTemplate)
+}
+
 // SendUserPasswordReset sends a password reset request email to the specified user.
 func SendUserPasswordReset(app core.App, user *models.User) error {
 	token, tokenErr := tokens.NewUserResetPasswordToken(app, user)
