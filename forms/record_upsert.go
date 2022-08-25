@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
 
+	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
@@ -19,28 +21,58 @@ import (
 	"github.com/spf13/cast"
 )
 
-// RecordUpsert defines a Record upsert form.
+// RecordUpsert specifies a [models.Record] upsert (create/update) form.
 type RecordUpsert struct {
-	app    core.App
+	config RecordUpsertConfig
 	record *models.Record
 
-	isCreate      bool
 	filesToDelete []string // names list
 	filesToUpload []*rest.UploadedFile
 
+	Id   string         `form:"id" json:"id"`
 	Data map[string]any `json:"data"`
 }
 
-// NewRecordUpsert creates a new Record upsert form.
-// (pass a new Record model instance (`models.NewRecord(...)`) for create).
+// RecordUpsertConfig is the [RecordUpsert] factory initializer config.
+//
+// NB! App is required struct member.
+type RecordUpsertConfig struct {
+	App   core.App
+	TxDao *daos.Dao
+}
+
+// NewRecordUpsert creates a new [RecordUpsert] form with initializer
+// config created from the provided [core.App] and [models.Record] instances
+// (for create you could pass a pointer to an empty Record - `models.NewRecord(collection)`).
+//
+// If you want to submit the form as part of another transaction, use
+// [NewRecordUpsertWithConfig] with explicitly set TxDao.
 func NewRecordUpsert(app core.App, record *models.Record) *RecordUpsert {
+	return NewRecordUpsertWithConfig(RecordUpsertConfig{
+		App: app,
+	}, record)
+}
+
+// NewRecordUpsertWithConfig creates a new [RecordUpsert] form
+// with the provided config and [models.Record] instance or panics on invalid configuration
+// (for create you could pass a pointer to an empty Record - `models.NewRecord(collection)`).
+func NewRecordUpsertWithConfig(config RecordUpsertConfig, record *models.Record) *RecordUpsert {
 	form := &RecordUpsert{
-		app:           app,
+		config:        config,
 		record:        record,
-		isCreate:      !record.HasId(),
 		filesToDelete: []string{},
 		filesToUpload: []*rest.UploadedFile{},
 	}
+
+	if form.config.App == nil || form.record == nil {
+		panic("Invalid initializer config or nil upsert model.")
+	}
+
+	if form.config.TxDao == nil {
+		form.config.TxDao = form.config.App.Dao()
+	}
+
+	form.Id = record.Id
 
 	form.Data = map[string]any{}
 	for _, field := range record.Collection().Schema.Fields() {
@@ -135,6 +167,10 @@ func (form *RecordUpsert) LoadData(r *http.Request) error {
 		return err
 	}
 
+	if id, ok := requestData["id"]; ok {
+		form.Id = cast.ToString(id)
+	}
+
 	// extend base data with the extracted one
 	extendedData := form.record.Data()
 	rawData, err := json.Marshal(requestData)
@@ -201,6 +237,10 @@ func (form *RecordUpsert) LoadData(r *http.Request) error {
 		// check if there are any new uploaded form files
 		files, err := rest.FindUploadedFiles(r, key)
 		if err != nil {
+			if form.config.App.IsDebug() {
+				log.Printf("%q uploaded file error: %v\n", key, err)
+			}
+
 			continue // skip invalid or missing file(s)
 		}
 
@@ -229,8 +269,24 @@ func (form *RecordUpsert) LoadData(r *http.Request) error {
 
 // Validate makes the form validatable by implementing [validation.Validatable] interface.
 func (form *RecordUpsert) Validate() error {
+	// base form fields validator
+	baseFieldsErrors := validation.ValidateStruct(form,
+		validation.Field(
+			&form.Id,
+			validation.When(
+				form.record.IsNew(),
+				validation.Length(models.DefaultIdLength, models.DefaultIdLength),
+				validation.Match(idRegex),
+			).Else(validation.In(form.record.Id)),
+		),
+	)
+	if baseFieldsErrors != nil {
+		return baseFieldsErrors
+	}
+
+	// record data validator
 	dataValidator := validators.NewRecordDataValidator(
-		form.app.Dao(),
+		form.config.TxDao,
 		form.record,
 		form.filesToUpload,
 	)
@@ -247,17 +303,26 @@ func (form *RecordUpsert) DrySubmit(callback func(txDao *daos.Dao) error) error 
 		return err
 	}
 
+	isNew := form.record.IsNew()
+
+	// custom insertion id can be set only on create
+	if isNew && form.Id != "" {
+		form.record.MarkAsNew()
+		form.record.SetId(form.Id)
+	}
+
 	// bulk load form data
 	if err := form.record.Load(form.Data); err != nil {
 		return err
 	}
 
-	return form.app.Dao().RunInTransaction(func(txDao *daos.Dao) error {
+	return form.config.TxDao.RunInTransaction(func(txDao *daos.Dao) error {
 		tx, ok := txDao.DB().(*dbx.Tx)
 		if !ok {
 			return errors.New("failed to get transaction db")
 		}
 		defer tx.Rollback()
+
 		txDao.BeforeCreateFunc = nil
 		txDao.AfterCreateFunc = nil
 		txDao.BeforeUpdateFunc = nil
@@ -267,7 +332,16 @@ func (form *RecordUpsert) DrySubmit(callback func(txDao *daos.Dao) error) error 
 			return err
 		}
 
-		return callback(txDao)
+		// restore record isNew state
+		if isNew {
+			form.record.MarkAsNew()
+		}
+
+		if callback != nil {
+			return callback(txDao)
+		}
+
+		return nil
 	})
 }
 
@@ -280,13 +354,19 @@ func (form *RecordUpsert) Submit(interceptors ...InterceptorFunc) error {
 		return err
 	}
 
+	// custom insertion id can be set only on create
+	if form.record.IsNew() && form.Id != "" {
+		form.record.MarkAsNew()
+		form.record.SetId(form.Id)
+	}
+
 	// bulk load form data
 	if err := form.record.Load(form.Data); err != nil {
 		return err
 	}
 
 	return runInterceptors(func() error {
-		return form.app.Dao().RunInTransaction(func(txDao *daos.Dao) error {
+		return form.config.TxDao.RunInTransaction(func(txDao *daos.Dao) error {
 			// persist record model
 			if err := txDao.SaveRecord(form.record); err != nil {
 				return err
@@ -317,7 +397,7 @@ func (form *RecordUpsert) processFilesToUpload() error {
 		return errors.New("The record is not persisted yet.")
 	}
 
-	fs, err := form.app.NewFilesystem()
+	fs, err := form.config.App.NewFilesystem()
 	if err != nil {
 		return err
 	}
@@ -353,7 +433,7 @@ func (form *RecordUpsert) processFilesToDelete() error {
 		return errors.New("The record is not persisted yet.")
 	}
 
-	fs, err := form.app.NewFilesystem()
+	fs, err := form.config.App.NewFilesystem()
 	if err != nil {
 		return err
 	}

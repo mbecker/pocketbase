@@ -10,7 +10,7 @@
     import Toasts from "@/components/base/Toasts.svelte";
     import Toggler from "@/components/base/Toggler.svelte";
     import Confirmation from "@/components/base/Confirmation.svelte";
-    import { pageTitle, appName } from "@/stores/app";
+    import { pageTitle, appName, hideControls } from "@/stores/app";
     import { admin } from "@/stores/admin";
     import { setErrors } from "@/stores/errors";
     import { resetConfirmation } from "@/stores/confirmation";
@@ -20,7 +20,7 @@
     let showAppSidebar = false;
 
     $: if ($admin?.id) {
-        loadAppName();
+        loadSettings();
     }
 
     function handleRouteLoading(e) {
@@ -42,18 +42,19 @@
         replace("/");
     }
 
-    async function loadAppName() {
+    async function loadSettings() {
         if (!$admin?.id) {
             return;
         }
 
         try {
-            const settings = await ApiClient.Settings.getAll({
-                $cancelKey: "loadAppName",
+            const settings = await ApiClient.settings.getAll({
+                $cancelKey: "initialAppSettings",
             });
             $appName = settings?.meta?.appName || "";
+            $hideControls = !!settings?.meta?.hideControls;
         } catch (err) {
-            console.warn("Failed to load app name.", err);
+            console.warn("Failed to load app settings.", err);
         }
     }
 
@@ -143,9 +144,9 @@
 
     <div class="app-body">
         <Router {routes} on:routeLoading={handleRouteLoading} on:conditionsFailed={handleRouteFailure} />
+
+        <Toasts />
     </div>
 </div>
-
-<Toasts />
 
 <Confirmation />

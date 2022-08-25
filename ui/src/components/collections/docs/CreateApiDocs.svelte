@@ -3,15 +3,16 @@
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
     import CodeBlock from "@/components/base/CodeBlock.svelte";
+    import SdkTabs from "@/components/collections/docs/SdkTabs.svelte";
 
     export let collection = new Collection();
 
     let responseTab = 200;
-    let sdkTab = "JavaScript";
     let responses = [];
-    let sdkExamples = [];
 
     $: adminsOnly = collection?.createRule === null;
+
+    $: backendAbsUrl = CommonHelper.getApiExampleUrl(ApiClient.baseUrl);
 
     $: responses = [
         {
@@ -44,23 +45,6 @@
             `,
         },
     ];
-
-    $: sdkExamples = [
-        {
-            lang: "JavaScript",
-            code: `
-                import PocketBase from 'pocketbase';
-
-                const client = new PocketBase("${ApiClient.baseUrl}");
-
-                ...
-
-                const data = { ... };
-
-                const record = await client.Records.create("${collection?.name}", data);
-            `,
-        },
-    ];
 </script>
 
 <div class="alert alert-success">
@@ -87,26 +71,30 @@
 </div>
 
 <div class="section-title">Client SDKs example</div>
-<div class="tabs m-b-lg">
-    <div class="tabs-header compact left">
-        {#each sdkExamples as example (example.lang)}
-            <button
-                class="tab-item"
-                class:active={sdkTab === example.lang}
-                on:click={() => (sdkTab = example.lang)}
-            >
-                {example.lang}
-            </button>
-        {/each}
-    </div>
-    <div class="tabs-content">
-        {#each sdkExamples as example (example.lang)}
-            <div class="tab-item" class:active={sdkTab === example.lang}>
-                <CodeBlock content={example.code} />
-            </div>
-        {/each}
-    </div>
-</div>
+<SdkTabs
+    js={`
+        import PocketBase from 'pocketbase';
+
+        const client = new PocketBase('${backendAbsUrl}');
+
+        ...
+
+        const data = { ... };
+
+        const record = await client.records.create('${collection?.name}', data);
+    `}
+    dart={`
+        import 'package:pocketbase/pocketbase.dart';
+
+        final client = PocketBase('${backendAbsUrl}');
+
+        ...
+
+        final body = <String, dynamic>{ ... };
+
+        final record = await client.records.create('${collection?.name}', body: body);
+    `}
+/>
 
 <div class="section-title">Body Parameters</div>
 <table class="table-compact table-border m-b-lg">
@@ -118,6 +106,22 @@
         </tr>
     </thead>
     <tbody>
+        <tr>
+            <td>
+                <div class="inline-flex">
+                    <span class="label label-warning">Optional</span>
+                    <span>id</span>
+                </div>
+            </td>
+            <td>
+                <span class="label">String</span>
+            </td>
+            <td>
+                <strong>15 characters string</strong> to store as record ID.
+                <br />
+                If not set, it will be auto generated.
+            </td>
+        </tr>
         {#each collection?.schema as field (field.name)}
             <tr>
                 <td>
@@ -145,7 +149,7 @@
                     {:else if field.type === "url"}
                         URL address.
                     {:else if field.type === "file"}
-                        FormData object.<br />
+                        File object.<br />
                         Set to <code>null</code> to delete already uploaded file(s).
                     {:else if field.type === "relation"}
                         Relation record {field.options?.maxSelect > 1 ? "ids" : "id"}.

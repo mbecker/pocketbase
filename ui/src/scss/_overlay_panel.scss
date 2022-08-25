@@ -193,6 +193,9 @@
             row-gap: var(--smSpacing);
         }
     }
+    &.full-width-popup {
+        width: 100%;
+    }
     &.image-preview {
         width: auto;
         min-width: 300px;
@@ -202,6 +205,7 @@
         .panel-header {
             position: absolute;
             z-index: 99;
+            box-shadow: none;
             .overlay-close {
                 left: 100%;
                 right: auto;

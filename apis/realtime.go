@@ -58,6 +58,10 @@ func (api *realtimeApi) connect(c echo.Context) error {
 		return err
 	}
 
+	if api.app.IsDebug() {
+		log.Printf("Realtime connection establisehd: %s\n", client.Id())
+	}
+
 	// signalize established connection (aka. fire "connect" message)
 	fmt.Fprint(c.Response(), "id:"+client.Id()+"\n")
 	fmt.Fprint(c.Response(), "event:PB_CONNECT\n")
@@ -206,13 +210,17 @@ func (api *realtimeApi) bindEvents() {
 		return nil
 	})
 
-	api.app.OnRecordAfterCreateRequest().Add(func(e *core.RecordCreateEvent) error {
-		api.broadcastRecord("create", e.Record)
+	api.app.OnModelAfterCreate().Add(func(e *core.ModelEvent) error {
+		if record, ok := e.Model.(*models.Record); ok {
+			api.broadcastRecord("create", record)
+		}
 		return nil
 	})
 
-	api.app.OnRecordAfterUpdateRequest().Add(func(e *core.RecordUpdateEvent) error {
-		api.broadcastRecord("update", e.Record)
+	api.app.OnModelAfterUpdate().Add(func(e *core.ModelEvent) error {
+		if record, ok := e.Model.(*models.Record); ok {
+			api.broadcastRecord("update", record)
+		}
 		return nil
 	})
 

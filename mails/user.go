@@ -1,8 +1,8 @@
 package mails
 
 import (
+	"html/template"
 	"net/mail"
-	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/mails/templates"
@@ -10,6 +10,7 @@ import (
 	"github.com/pocketbase/pocketbase/tokens"
 )
 
+<<<<<<< HEAD
 func prepareUserEmailBody(
 	app core.App,
 	user *models.User,
@@ -61,6 +62,8 @@ func PrepareUserEmailBody(
 	return prepareUserEmailBody(app, user, token, actionUrl, bodyTemplate)
 }
 
+=======
+>>>>>>> upstream/master
 // SendUserPasswordReset sends a password reset request email to the specified user.
 func SendUserPasswordReset(app core.App, user *models.User) error {
 	token, tokenErr := tokens.NewUserResetPasswordToken(app, user)
@@ -77,24 +80,20 @@ func SendUserPasswordReset(app core.App, user *models.User) error {
 	}
 
 	sendErr := app.OnMailerBeforeUserResetPasswordSend().Trigger(event, func(e *core.MailerUserEvent) error {
-		body, err := prepareUserEmailBody(
-			app,
-			user,
-			token,
-			app.Settings().Meta.UserResetPasswordUrl,
-			templates.UserPasswordResetBody,
-		)
+		settings := app.Settings()
+
+		subject, body, err := resolveEmailTemplate(app, token, settings.Meta.ResetPasswordTemplate)
 		if err != nil {
 			return err
 		}
 
 		return e.MailClient.Send(
 			mail.Address{
-				Name:    app.Settings().Meta.SenderName,
-				Address: app.Settings().Meta.SenderAddress,
+				Name:    settings.Meta.SenderName,
+				Address: settings.Meta.SenderAddress,
 			},
 			mail.Address{Address: e.User.Email},
-			("Reset your " + app.Settings().Meta.AppName + " password"),
+			subject,
 			body,
 			nil,
 		)
@@ -123,24 +122,20 @@ func SendUserVerification(app core.App, user *models.User) error {
 	}
 
 	sendErr := app.OnMailerBeforeUserVerificationSend().Trigger(event, func(e *core.MailerUserEvent) error {
-		body, err := prepareUserEmailBody(
-			app,
-			user,
-			token,
-			app.Settings().Meta.UserVerificationUrl,
-			templates.UserVerificationBody,
-		)
+		settings := app.Settings()
+
+		subject, body, err := resolveEmailTemplate(app, token, settings.Meta.VerificationTemplate)
 		if err != nil {
 			return err
 		}
 
 		return e.MailClient.Send(
 			mail.Address{
-				Name:    app.Settings().Meta.SenderName,
-				Address: app.Settings().Meta.SenderAddress,
+				Name:    settings.Meta.SenderName,
+				Address: settings.Meta.SenderAddress,
 			},
 			mail.Address{Address: e.User.Email},
-			("Verify your " + app.Settings().Meta.AppName + " email"),
+			subject,
 			body,
 			nil,
 		)
@@ -172,24 +167,20 @@ func SendUserChangeEmail(app core.App, user *models.User, newEmail string) error
 	}
 
 	sendErr := app.OnMailerBeforeUserChangeEmailSend().Trigger(event, func(e *core.MailerUserEvent) error {
-		body, err := prepareUserEmailBody(
-			app,
-			user,
-			token,
-			app.Settings().Meta.UserConfirmEmailChangeUrl,
-			templates.UserConfirmEmailChangeBody,
-		)
+		settings := app.Settings()
+
+		subject, body, err := resolveEmailTemplate(app, token, settings.Meta.ConfirmEmailChangeTemplate)
 		if err != nil {
 			return err
 		}
 
 		return e.MailClient.Send(
 			mail.Address{
-				Name:    app.Settings().Meta.SenderName,
-				Address: app.Settings().Meta.SenderAddress,
+				Name:    settings.Meta.SenderName,
+				Address: settings.Meta.SenderAddress,
 			},
 			mail.Address{Address: newEmail},
-			("Confirm your " + app.Settings().Meta.AppName + " new email address"),
+			subject,
 			body,
 			nil,
 		)
@@ -200,4 +191,31 @@ func SendUserChangeEmail(app core.App, user *models.User, newEmail string) error
 	}
 
 	return sendErr
+}
+
+func resolveEmailTemplate(
+	app core.App,
+	token string,
+	emailTemplate core.EmailTemplate,
+) (subject string, body string, err error) {
+	settings := app.Settings()
+
+	subject, rawBody, _ := emailTemplate.Resolve(
+		settings.Meta.AppName,
+		settings.Meta.AppUrl,
+		token,
+	)
+
+	params := struct {
+		HtmlContent template.HTML
+	}{
+		HtmlContent: template.HTML(rawBody),
+	}
+
+	body, err = resolveTemplateContent(params, templates.Layout, templates.HtmlBody)
+	if err != nil {
+		return "", "", err
+	}
+
+	return subject, body, nil
 }
