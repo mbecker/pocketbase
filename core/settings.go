@@ -18,24 +18,6 @@ import (
 type Settings struct {
 	mux sync.RWMutex
 
-<<<<<<< HEAD
-	Meta                    MetaConfig         `form:"meta" json:"meta"`
-	Logs                    LogsConfig         `form:"logs" json:"logs"`
-	Smtp                    SmtpConfig         `form:"smtp" json:"smtp"`
-	S3                      S3Config           `form:"s3" json:"s3"`
-	AdminAuthToken          TokenConfig        `form:"adminAuthToken" json:"adminAuthToken"`
-	AdminPasswordResetToken TokenConfig        `form:"adminPasswordResetToken" json:"adminPasswordResetToken"`
-	UserAuthToken           TokenConfig        `form:"userAuthToken" json:"userAuthToken"`
-	UserPasswordResetToken  TokenConfig        `form:"userPasswordResetToken" json:"userPasswordResetToken"`
-	UserEmailChangeToken    TokenConfig        `form:"userEmailChangeToken" json:"userEmailChangeToken"`
-	UserVerificationToken   TokenConfig        `form:"userVerificationToken" json:"userVerificationToken"`
-	EmailAuth               EmailAuthConfig    `form:"emailAuth" json:"emailAuth"`
-	GoogleAuth              AuthProviderConfig `form:"googleAuth" json:"googleAuth"`
-	FacebookAuth            AuthProviderConfig `form:"facebookAuth" json:"facebookAuth"`
-	GithubAuth              AuthProviderConfig `form:"githubAuth" json:"githubAuth"`
-	GitlabAuth              AuthProviderConfig `form:"gitlabAuth" json:"gitlabAuth"`
-	StravaAuth              AuthProviderConfig `form:"stravaAuth" json:"stravaAuth"`
-=======
 	Meta MetaConfig `form:"meta" json:"meta"`
 	Logs LogsConfig `form:"logs" json:"logs"`
 	Smtp SmtpConfig `form:"smtp" json:"smtp"`
@@ -53,7 +35,7 @@ type Settings struct {
 	FacebookAuth AuthProviderConfig `form:"facebookAuth" json:"facebookAuth"`
 	GithubAuth   AuthProviderConfig `form:"githubAuth" json:"githubAuth"`
 	GitlabAuth   AuthProviderConfig `form:"gitlabAuth" json:"gitlabAuth"`
->>>>>>> upstream/master
+	StravaAuth   AuthProviderConfig `form:"stravaAuth" json:"stravaAuth"`
 }
 
 // NewSettings creates and returns a new default Settings instance.

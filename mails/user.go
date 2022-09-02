@@ -10,60 +10,6 @@ import (
 	"github.com/pocketbase/pocketbase/tokens"
 )
 
-<<<<<<< HEAD
-func prepareUserEmailBody(
-	app core.App,
-	user *models.User,
-	token string,
-	actionUrl string,
-	bodyTemplate string,
-) (string, error) {
-	settings := app.Settings()
-
-	// replace action url placeholder params (if any)
-	actionUrlParams := map[string]string{
-		core.EmailPlaceholderAppUrl: settings.Meta.AppUrl,
-		core.EmailPlaceholderToken:  token,
-	}
-	for k, v := range actionUrlParams {
-		actionUrl = strings.ReplaceAll(actionUrl, k, v)
-	}
-	var urlErr error
-	actionUrl, urlErr = normalizeUrl(actionUrl)
-	if urlErr != nil {
-		return "", urlErr
-	}
-
-	params := struct {
-		AppName   string
-		AppUrl    string
-		User      *models.User
-		Token     string
-		ActionUrl string
-	}{
-		AppName:   settings.Meta.AppName,
-		AppUrl:    settings.Meta.AppUrl,
-		User:      user,
-		Token:     token,
-		ActionUrl: actionUrl,
-	}
-
-	return resolveTemplateContent(params, templates.Layout, bodyTemplate)
-}
-
-// PrepareUserEmailBody prepares the email body
-func PrepareUserEmailBody(
-	app core.App,
-	user *models.User,
-	token string,
-	actionUrl string,
-	bodyTemplate string,
-) (string, error) {
-	return prepareUserEmailBody(app, user, token, actionUrl, bodyTemplate)
-}
-
-=======
->>>>>>> upstream/master
 // SendUserPasswordReset sends a password reset request email to the specified user.
 func SendUserPasswordReset(app core.App, user *models.User) error {
 	token, tokenErr := tokens.NewUserResetPasswordToken(app, user)
