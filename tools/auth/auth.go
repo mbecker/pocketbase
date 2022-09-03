@@ -91,6 +91,10 @@ func NewProviderByName(name string) (Provider, error) {
 		return NewGithubProvider(), nil
 	case NameGitlab:
 		return NewGitlabProvider(), nil
+	case NameDiscord:
+		return NewDiscordProvider(), nil
+	case NameTwitter:
+		return NewTwitterProvider(), nil
 	case NameStrava:
 		return NewStravaProvider(), nil
 	default:

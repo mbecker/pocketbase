@@ -64,13 +64,14 @@ func (m *SmtpClient) Send(
 		yak.FromName(fromEmail.Name)
 	}
 	yak.From(fromEmail.Address)
-
-	// wrap in brackets as workaround for spamassasin "TO_NO_BRKTS_HTML_ONLY" rule
-	// yak.To(strings.TrimSpace(fmt.Sprintf("%s <%s>", toEmail.Name, toEmail.Address)))
 	yak.To(toEmail.Address)
-
 	yak.Subject(subject)
 	yak.HTML().Set(htmlContent)
+
+	// try to generate a plain text version of the HTML
+	if plain, err := html2Text(htmlContent); err == nil {
+		yak.Plain().Set(plain)
+	}
 
 	for name, data := range attachments {
 		yak.Attach(name, data)

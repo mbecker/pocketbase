@@ -37,8 +37,8 @@ type RecordUpsert struct {
 //
 // NB! App is required struct member.
 type RecordUpsertConfig struct {
-	App   core.App
-	TxDao *daos.Dao
+	App core.App
+	Dao *daos.Dao
 }
 
 // NewRecordUpsert creates a new [RecordUpsert] form with initializer
@@ -46,7 +46,7 @@ type RecordUpsertConfig struct {
 // (for create you could pass a pointer to an empty Record - `models.NewRecord(collection)`).
 //
 // If you want to submit the form as part of another transaction, use
-// [NewRecordUpsertWithConfig] with explicitly set TxDao.
+// [NewRecordUpsertWithConfig] with explicitly set Dao.
 func NewRecordUpsert(app core.App, record *models.Record) *RecordUpsert {
 	return NewRecordUpsertWithConfig(RecordUpsertConfig{
 		App: app,
@@ -68,8 +68,8 @@ func NewRecordUpsertWithConfig(config RecordUpsertConfig, record *models.Record)
 		panic("Invalid initializer config or nil upsert model.")
 	}
 
-	if form.config.TxDao == nil {
-		form.config.TxDao = form.config.App.Dao()
+	if form.config.Dao == nil {
+		form.config.Dao = form.config.App.Dao()
 	}
 
 	form.Id = record.Id
@@ -194,21 +194,26 @@ func (form *RecordUpsert) LoadData(r *http.Request) error {
 		options, _ := field.Options.(*schema.FileOptions)
 		oldNames := list.ToUniqueStringSlice(form.Data[key])
 
-		// delete previously uploaded file(s)
-		if options.MaxSelect == 1 {
-			// search for unset zero indexed key as a fallback
-			indexedKeyValue, hasIndexedKey := extendedData[key+".0"]
+		// -----------------------------------------------------------
+		// Delete previously uploaded file(s)
+		// -----------------------------------------------------------
 
-			if cast.ToString(value) == "" || (hasIndexedKey && cast.ToString(indexedKeyValue) == "") {
-				if len(oldNames) > 0 {
-					form.filesToDelete = append(form.filesToDelete, oldNames...)
-				}
-				form.Data[key] = ""
-			}
-		} else if options.MaxSelect > 1 {
-			// search for individual file index to delete (eg. "file.0")
-			keyExp, _ := regexp.Compile(`^` + regexp.QuoteMeta(key) + `\.\d+$`)
+		// if empty value was set, mark all previously uploaded files for deletion
+		if len(list.ToUniqueStringSlice(value)) == 0 && len(oldNames) > 0 {
+			form.filesToDelete = append(form.filesToDelete, oldNames...)
+			form.Data[key] = []string{}
+		} else if len(oldNames) > 0 {
 			indexesToDelete := make([]int, 0, len(extendedData))
+
+			// search for individual file name to delete (eg. "file.test.png = null")
+			for i, name := range oldNames {
+				if v, ok := extendedData[key+"."+name]; ok && cast.ToString(v) == "" {
+					indexesToDelete = append(indexesToDelete, i)
+				}
+			}
+
+			// search for individual file index to delete (eg. "file.0 = null")
+			keyExp, _ := regexp.Compile(`^` + regexp.QuoteMeta(key) + `\.\d+$`)
 			for indexedKey := range extendedData {
 				if keyExp.MatchString(indexedKey) && cast.ToString(extendedData[indexedKey]) == "" {
 					index, indexErr := strconv.Atoi(indexedKey[len(key)+1:])
@@ -234,7 +239,14 @@ func (form *RecordUpsert) LoadData(r *http.Request) error {
 			form.Data[key] = nonDeleted
 		}
 
-		// check if there are any new uploaded form files
+		// -----------------------------------------------------------
+		// Check for new uploaded file
+		// -----------------------------------------------------------
+
+		if form.getContentType(r) != "multipart/form-data" {
+			continue // file upload is supported only via multipart/form-data
+		}
+
 		files, err := rest.FindUploadedFiles(r, key)
 		if err != nil {
 			if form.config.App.IsDebug() {
@@ -286,7 +298,7 @@ func (form *RecordUpsert) Validate() error {
 
 	// record data validator
 	dataValidator := validators.NewRecordDataValidator(
-		form.config.TxDao,
+		form.config.Dao,
 		form.record,
 		form.filesToUpload,
 	)
@@ -316,7 +328,7 @@ func (form *RecordUpsert) DrySubmit(callback func(txDao *daos.Dao) error) error 
 		return err
 	}
 
-	return form.config.TxDao.RunInTransaction(func(txDao *daos.Dao) error {
+	return form.config.Dao.RunInTransaction(func(txDao *daos.Dao) error {
 		tx, ok := txDao.DB().(*dbx.Tx)
 		if !ok {
 			return errors.New("failed to get transaction db")
@@ -366,7 +378,7 @@ func (form *RecordUpsert) Submit(interceptors ...InterceptorFunc) error {
 	}
 
 	return runInterceptors(func() error {
-		return form.config.TxDao.RunInTransaction(func(txDao *daos.Dao) error {
+		return form.config.Dao.RunInTransaction(func(txDao *daos.Dao) error {
 			// persist record model
 			if err := txDao.SaveRecord(form.record); err != nil {
 				return err

@@ -35,6 +35,8 @@ type Settings struct {
 	FacebookAuth AuthProviderConfig `form:"facebookAuth" json:"facebookAuth"`
 	GithubAuth   AuthProviderConfig `form:"githubAuth" json:"githubAuth"`
 	GitlabAuth   AuthProviderConfig `form:"gitlabAuth" json:"gitlabAuth"`
+	DiscordAuth  AuthProviderConfig `form:"discordAuth" json:"discordAuth"`
+	TwitterAuth  AuthProviderConfig `form:"twitterAuth" json:"twitterAuth"`
 	StravaAuth   AuthProviderConfig `form:"stravaAuth" json:"stravaAuth"`
 }
 
@@ -107,6 +109,14 @@ func NewSettings() *Settings {
 			Enabled:            false,
 			AllowRegistrations: true,
 		},
+		DiscordAuth: AuthProviderConfig{
+			Enabled:            false,
+			AllowRegistrations: true,
+		},
+		TwitterAuth: AuthProviderConfig{
+			Enabled:            false,
+			AllowRegistrations: true,
+		},
 		StravaAuth: AuthProviderConfig{
 			Enabled:            false,
 			AllowRegistrations: true,
@@ -135,6 +145,8 @@ func (s *Settings) Validate() error {
 		validation.Field(&s.FacebookAuth),
 		validation.Field(&s.GithubAuth),
 		validation.Field(&s.GitlabAuth),
+		validation.Field(&s.DiscordAuth),
+		validation.Field(&s.TwitterAuth),
 		validation.Field(&s.StravaAuth),
 	)
 }
@@ -184,6 +196,8 @@ func (s *Settings) RedactClone() (*Settings, error) {
 		&clone.FacebookAuth.ClientSecret,
 		&clone.GithubAuth.ClientSecret,
 		&clone.GitlabAuth.ClientSecret,
+		&clone.DiscordAuth.ClientSecret,
+		&clone.TwitterAuth.ClientSecret,
 		&clone.StravaAuth.ClientSecret,
 	}
 
@@ -208,6 +222,8 @@ func (s *Settings) NamedAuthProviderConfigs() map[string]AuthProviderConfig {
 		auth.NameFacebook: s.FacebookAuth,
 		auth.NameGithub:   s.GithubAuth,
 		auth.NameGitlab:   s.GitlabAuth,
+		auth.NameDiscord:  s.DiscordAuth,
+		auth.NameTwitter:  s.TwitterAuth,
 		auth.NameStrava:   s.StravaAuth,
 	}
 }
@@ -223,7 +239,7 @@ type TokenConfig struct {
 func (c TokenConfig) Validate() error {
 	return validation.ValidateStruct(&c,
 		validation.Field(&c.Secret, validation.Required, validation.Length(30, 300)),
-		validation.Field(&c.Duration, validation.Required, validation.Min(5), validation.Max(31536000)),
+		validation.Field(&c.Duration, validation.Required, validation.Min(5), validation.Max(63072000)),
 	)
 }
 
@@ -293,7 +309,7 @@ func (c MetaConfig) Validate() error {
 		validation.Field(&c.AppName, validation.Required, validation.Length(1, 255)),
 		validation.Field(&c.AppUrl, validation.Required, is.URL),
 		validation.Field(&c.SenderName, validation.Required, validation.Length(1, 255)),
-		validation.Field(&c.SenderAddress, is.Email, validation.Required),
+		validation.Field(&c.SenderAddress, is.EmailFormat, validation.Required),
 		validation.Field(&c.VerificationTemplate, validation.Required),
 		validation.Field(&c.ResetPasswordTemplate, validation.Required),
 		validation.Field(&c.ConfirmEmailChangeTemplate, validation.Required),

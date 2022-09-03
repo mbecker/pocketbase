@@ -197,16 +197,21 @@
 
                             <td class="col-type-email col-field-email">
                                 <div class="inline-flex">
-                                    <span class="txt" title={user.email}>
-                                        {user.email}
-                                    </span>
-                                    <span
-                                        class="label"
-                                        class:label-success={user.verified}
-                                        class:label-warning={!user.verified}
-                                    >
-                                        {user.verified ? "Verified" : "Unverified"}
-                                    </span>
+                                    {#if user.email}
+                                        <span class="txt" title={user.email}>{user.email}</span>
+                                        <span
+                                            class="label"
+                                            class:label-success={user.verified}
+                                            class:label-warning={!user.verified}
+                                        >
+                                            {user.verified ? "Verified" : "Unverified"}
+                                        </span>
+                                    {:else}
+                                        <div class="txt-hint">N/A</div>
+                                        {#if user.verified}
+                                            <span class="label label-success">OAuth2 verified</span>
+                                        {/if}
+                                    {/if}
                                 </div>
                             </td>
 
