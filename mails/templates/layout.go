@@ -56,7 +56,7 @@ const Layout = `
             border: 0;
             cursor: pointer;
             color: #fff !important;
-            background: #16161a !important;
+            background: rgb(28 32 60 / 1) !important;
             text-decoration: none !important;
             line-height: 45px;
             width: 100%;
@@ -67,7 +67,7 @@ const Layout = `
             font-family: Source Sans Pro, sans-serif, emoji;;
             font-size: 14px;
             font-weight: bold;
-            border-radius: 3px;
+            border-radius: 0px;
             box-sizing: border-box;
         }
         .wrapper {
