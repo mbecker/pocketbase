@@ -28,4 +28,8 @@ export default {
         title: "Discord",
         icon:  "ri-discord-fill",
     },
+    stravaAuth: {
+        title: "Strava",
+        icon:  "ri-google-fill",
+    },
 };
